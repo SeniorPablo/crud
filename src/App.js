@@ -1,6 +1,6 @@
-import React, { Fragment, useState } from 'react'
+import React, { Fragment, useState, useEffect } from 'react'
 import { isEmpty, size } from 'lodash'
-import shortid from 'shortid'
+import { getCollection, addDocument, updateDocument, deleteDocument } from './actions/generic'
 
 function App() {
   const [task, setTask] = useState("")
@@ -8,6 +8,15 @@ function App() {
   const [editMode, setEditMode] = useState(false)
   const [id, setId] = useState("")
   const [error, setError] = useState(null)
+
+  useEffect(() => {
+    (async () => {
+      const result = await getCollection("tasks")
+      if (result.statusResponse) {
+        setTasks(result.data)
+      }
+    })()
+  }, [])
 
   const validForm = () => {
     let isValid = true
@@ -21,21 +30,32 @@ function App() {
     return isValid
   }
 
-  const addTask = (e) => {
+  const addTask = async (e) => {
     e.preventDefault()
     if (!validForm()) {
       return
     }
-    const newTask = {
-      id: shortid.generate(),
-      name: task
-    }
 
-    setTasks([...tasks, newTask])
-    setTask("")
+    const result = await addDocument("tasks", { name: task })
+
+    if (result.statusResponse) {
+
+      const newTask = {
+        id: result.data.id,
+        name: task
+      }
+
+      setTasks([...tasks, newTask])
+      setTask("")
+    }
   }
 
-  const deleteTask = (id) => {
+  const deleteTask = async (id) => {
+    const result = await deleteDocument("tasks", id)
+    if (!result.statusResponse) {
+      setError(result.error)
+      return
+    }
     const filterTask = tasks.filter(task => task.id !== id)
     setTasks(filterTask)
   }
@@ -46,12 +66,17 @@ function App() {
     setId(item.id)
   }
 
-  const updateTask = (e) => {
+  const updateTask = async (e) => {
     e.preventDefault()
     if (!validForm()) {
       return
     }
 
+    const result = await updateDocument("tasks", id, { name: task })
+    if (!result.statusResponse) {
+      setError(result.error)
+      return
+    }
     const updatedTask = tasks.map((item) => item.id === id ? { id, name: task } : item)
     setTasks(updatedTask)
     setEditMode(false)
